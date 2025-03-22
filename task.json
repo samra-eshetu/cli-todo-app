@@ -1,4 +1,17 @@
 [
-  "Learn JavaScript",
-  "Build a CLI app"
+  {
+    "id": 1,
+    "description": "Learn JavaScript",
+    "completed": false
+  },
+  {
+    "id": 2,
+    "description": "Build a CLI App",
+    "completed": true
+  },
+  {
+    "id": 3,
+    "description": "Write Documentation",
+    "completed": false
+  }
 ]
