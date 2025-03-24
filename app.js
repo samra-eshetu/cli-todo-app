@@ -1,119 +1,148 @@
 const fs = require('fs');
 const readline = require('readline');
+const chalk = require('chalk');
 
-//Create an interface for reading input from the command line
-const r1 = readline.createInterface({
+const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
 
-const fileName = 'task.json'; //File to store tasks
+const fileName = 'task.json';
 
-//Load tasks form the JSON file
-
+// Load tasks from JSON file
 function loadTasks() {
     try {
-        const data = fs.readFileSync(fileName, 'utf8');//read the file
-        return JSON.parse(data);//parse the JSON data
+        const data = fs.readFileSync(fileName, 'utf8');
+        return JSON.parse(data);
     } catch (err) {
-        return []// Return an empty array if the file doesn't exist or is invalid
+        return [];
     }
 }
-// Save tasks to the JSON file
+
+// Save tasks to JSON file
 function saveTasks(tasks) {
-    fs.writeFileSync(fileName, JSON.stringify(tasks, null, 2));//write tasks to the file
+    fs.writeFileSync(fileName, JSON.stringify(tasks, null, 2));
 }
+
+// Display tasks with color coding
 function displayTasks(tasks) {
     if (tasks.length === 0) {
-        console.log('No tasks found');
-    } else {
-        console.log('Your tasks:');
-        tasks.forEach(task => {
-            const status = task.completed ? '[x]' : '[]';
-            console.log(`${task.id}. ${status} ${task.description}`);
-        });
+        console.log(chalk.yellow('No tasks found.'));
+        return;
     }
+
+    console.log(chalk.bold('\nYour tasks:'));
+    tasks.forEach(task => {
+        const status = task.completed
+            ? chalk.green('[x]')
+            : chalk.red('[ ]');
+        console.log(`${task.id}. ${status} ${task.description}`);
+    });
 }
+
+// Generate new task ID
 function getNewId(tasks) {
-    if (tasks.length === 0) return 1;
-    const maxId = Math.max(...tasks.map(task => task.id));
-    return maxId + 1;
+    return tasks.length === 0 ? 1 : Math.max(...tasks.map(t => t.id)) + 1;
 }
-//Get command-line arguments
-const command = process.argv[2]; //The command(eg. "add" or "list")
-const taskName = process.argv[3]; // The task name (if adding a task)
 
-if (command === 'add') {
-    if (!taskName) {
-        console.log('Please provide a task name.');
-        r1.close();
-        return;
+// Handle user commands
+function handleCommand(input) {
+    const args = input.trim().split(' ');
+    const command = args[0].toLowerCase();
+    const restArgs = args.slice(1).join(' ');
+
+    switch (command) {
+        case 'add': {
+            if (!restArgs) {
+                console.log(chalk.red('Error: Please provide a task description.'));
+                break;
+            }
+            const tasks = loadTasks();
+            const newTask = {
+                id: getNewId(tasks),
+                description: restArgs,
+                completed: false
+            };
+            tasks.push(newTask);
+            saveTasks(tasks);
+            console.log(chalk.green(`✓ Task "${restArgs}" added!`));
+            break;
+        }
+
+        case 'list': {
+            const tasks = loadTasks();
+            displayTasks(tasks);
+            break;
+        }
+
+        case 'delete': {
+            const taskId = parseInt(args[1], 10);
+            if (isNaN(taskId)) {
+                console.log(chalk.red('Error: Invalid task ID.'));
+                break;
+            }
+            const tasks = loadTasks();
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) {
+                console.log(chalk.red('Error: Task not found.'));
+                break;
+            }
+            const deletedTask = tasks.splice(taskIndex, 1)[0];
+            saveTasks(tasks);
+            console.log(chalk.green(`✓ Task "${deletedTask.description}" deleted.`));
+            break;
+        }
+
+        case 'complete': {
+            const taskId = parseInt(args[1], 10);
+            if (isNaN(taskId)) {
+                console.log(chalk.red('Error: Invalid task ID.'));
+                break;
+            }
+            const tasks = loadTasks();
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                console.log(chalk.red('Error: Task not found.'));
+                break;
+            }
+            task.completed = true;
+            saveTasks(tasks);
+            console.log(chalk.green(`✓ Task "${task.description}" marked as completed.`));
+            break;
+        }
+
+        case 'help':
+            console.log(`
+${chalk.bold('Commands:')}
+add "Task Name"    → Add a new task
+list               → List all tasks
+delete <ID>        → Delete a task by ID
+complete <ID>      → Mark a task as completed
+help               → Show this help
+exit               → Quit the app
+      `);
+            break;
+
+        case 'exit':
+            rl.close();
+            break;
+
+        default:
+            console.log(chalk.red(`Error: Unknown command "${command}". Type "help" for options.`));
     }
-    const tasks = loadTasks(); //Load existing tasks
-    const newTask = {
-        id: getNewId(tasks),
-        description: taskName,
-        completed: false
-    };
-    tasks.push(newTask);// add the new task
-    saveTasks(tasks); //save updated tasks
-    console.log(`Tasks"${taskName}" added successfully.`);
-
-} else if (command === 'list') {
-    const tasks = loadTasks(); //Load existing tasks
-    displayTasks(tasks);
-
-} else if (command === 'delete') {
-    const taskId = parseInt(taskName, 10);
-    if (isNaN(taskId)) {
-        console.log('Please provide a valid task ID.');
-        r1.close();
-        return;
-    }
-    const tasks = loadTasks();
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) {
-        console.log('Task not found');
-        r1.close();
-        return;
-    }
-    // Remove the task at the given index
-    const deletedTask = tasks.splice(taskIndex, 1)[0];
-    saveTasks(tasks);
-    console.log(`Tasks "${deletedTask.description}" deleted successfully `);
-
-
-} else if (command == 'complete') {
-    const taskId = parseInt(taskName, 10);
-    if (isNaN(taskId)) {
-        console.log('Please provide a valid task ID');
-        r1.close();
-        return;
-    }
-
-    const tasks = loadTasks();
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) {
-        console.log('Task not found');
-        r1.close();
-        return;
-    }
-
-    task.completed = true;
-    saveTasks(tasks);
-    console.log(`Task "${task.description}" marked as completed.`);
-
-} else if (command === 'help') {
-    console.log(`
-        Usage:
-    node app.js add "Task Name"    - Add a new task.
-    node app.js list               - List all tasks.
-    node app.js delete <ID>        - Delete a task by ID.
-    node app.js complete <ID>      - Mark a task as completed.
-    node app.js help               - Show this help message.
-        `);
-} else {
-    console.log('Invalid command. Use "help" for usage instructions.');
-
 }
-r1.close();// Close the readline interface
+
+// Start the interactive CLI
+console.log(chalk.blue.bold('\nWelcome to the CLI To-Do App!'));
+console.log(chalk.blue('Type "help" to see available commands.\n'));
+
+rl.setPrompt(chalk.blue('todo> '));
+rl.prompt();
+
+rl.on('line', (input) => {
+    handleCommand(input);
+    rl.prompt();
+}).on('close', () => {
+    console.log(chalk.blue('\nGoodbye!'));
+    process.exit(0);
+});
